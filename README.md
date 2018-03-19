@@ -34,7 +34,7 @@ cd ..
 ```
 Run nastybugs 
 ```{sh}
-mkdir ./cardgene ./cardsnp ./outDir
+# docker pull stevetsa/metagenomicantibioticresistance:latest  #update Docker image
 docker run -v `pwd`:`pwd` -w `pwd` -i -t stevetsa/metagenomicantibioticresistance:latest
 sh /MetagenomicAntibioticResistance/nastybugs.sh id.txt ./hgDir/hg19 ./cardgene ./cardsnp 16 ./outDir
 ```
