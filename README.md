@@ -15,6 +15,113 @@ to locate antimicrobial resistant genomic signatures in SRA shotgun sequencing (
 
 This project was part of the [Summer 2017 NCBI Hackathon](https://ncbi-hackathons.github.io/).
 
+## Docker Image
+
+A Docker image complete with all tools and dependencies in project is available.  
+[Install Docker](https://docs.docker.com/install/#desktop) 
+[How to use/run a Docker image from a previous hackathon](https://github.com/NCBI-Hackathons/Cancer_Epitopes_CSHL/blob/master/doc/Docker.md)
+
+## Pull and Run Docker Image
+From Working Directory - 
+
+```{sh}
+touch id.txt #Add SRA Accession - one per line 
+mkdir hgDir cardgene cardsnp outDir  #create directories or use existing directories
+cp ucsc.hg19.fasta ./hgDir/.         #download host genome sequence and copy to the hgDir directory
+cd hgDir
+makeblastdb -in ucsc.hg19.fasta -dbtype nucl -out hg19 #Create BLAST databases for host removal
+cd ..
+sh nastybugs.sh id.txt ./hgDir/hg19 ./cardgene ./cardsnp 16 ./outDir
+docker run -v `pwd`:`pwd` -w `pwd` -i -t stevetsa/metagenomicantibioticresistance:latest
+sh /MetagenomicAntibioticResistance/nastybugs.sh id.txt ./hgDir/hg19 ./cardgene ./cardsnp 16 ./outDir
+```
+
+## NastyBugs Workflow
+
+![My image](https://github.com/NCBI-Hackathons/MetagenomicAntibioticResistance/blob/master/AbxResistanceMetagenomics.png)
+
+## Workflow method
+
+The pipeline use three databases that should be downloaded with the script:
+1.	**GRCh37/hg19 human reference genome database** used for alignment and filtering reads of human origin from metagenomics samples.
+2.	**CARD database** used for search of genomic signatures in the subset of reads unaligned to human genome.
+3.	**RefSeq reference bacterial genomes database** used for search and assigning of 16S RNA taxonomic labels the subset of reads unaligned to human genome.
+
+Step 1. 
+Getting CARD Gene and SNP databases and create BLAST db - https://card.mcmaster.ca/download
+
+```{sh}
+wget https://card.mcmaster.ca/download/0/broadstreet-v2.0.0.tar.gz
+tar xvf broadstreet-v2.0.0.tar.gz
+makeblastdb -in nucleotide_fasta_protein_homolog_model.fasta -dbtype nucl -out cardgenedb
+makeblastdb -in nucleotide_fasta_protein_variant_model.fasta -dbtype nucl -out cardsnpdb
+```
+
+Step. 2
+
+Loop Through SRA Accession List (id.txt - one accession per line)
+First we align to a host so we can subtract host reads by mapping SRA to host genome using magicblast 
+Extract unmapped read and convert to FASTA   #Getting unmapped reads (-f 4).  For mapped reads, use flag (-F 4)  
+
+```{sh}
+magicblast -sra $sra -db $hostGen -num_threads $cores -score 50 -penalty -3 -out $outdir/$sra.human.sam
+samtools fasta -f 4 $outdir/$sra.human.sam -1 $outdir/${sra}_unmapped_read_one -2 $outdir/${sra}_unmapped_read_two -0 $outdir/${sra}_unmapped_read_zero
+```
+    
+Step. 3
+Trim FASTA files
+```{sh}
+fastx_clipper -i $outdir/${sra}_unmapped_read_one -o $outdir/${sra}_unmapped_read_one_trimmed
+fastx_clipper -i $outdir/${sra}_unmapped_read_two -o $outdir/${sra}_unmapped_read_two_trimmed
+```
+
+Step. 4     
+Map FASTA files to CARD gene and variant sequences
+
+```{sh}
+magicblast -num_threads $cores  -infmt fasta -query $outdir/${sra}_unmapped_read_one_trimmed -query_mate $outdir/${sra}_unmapped_read_two_trimmed -score 50 -penalty -3 -out $outdir/$sra.CARD_gene.sa
+m -db $cardgene/cardgenedb
+magicblast -num_threads $cores  -infmt fasta -query $outdir/${sra}_unmapped_read_one_trimmed -query_mate $outdir/${sra}_unmapped_read_two_trimmed -score 50 -penalty -3 -out $outdir/$sra.CARD_snp.sam
+ -db $cardsnp/cardsnpdb
+```
+
+Step. 5
+Convert the gene_homology aligned SAM to BAM and sort. Delete SAM to save space
+
+```{sh}
+samtools view -bS $outdir/$sra.CARD_gene.sam | samtools sort -o $outdir/$sra.CARD_gene.bam 
+samtools view -bS $outdir/$sra.CARD_snp.sam | samtools sort -o $outdir/$sra.CARD_snp.bam # should we output the unaligned reads to a different bam?
+rm -f $outdir/$sra.CARD*.sam
+```
+
+## Usage
+From working directory - 
+Required: id.txt ( List of SRA Accession Numbers - One Acession number per line)
+Required: Download Human Genome Sequence, e.g. ucsc.hg19.fasta, or other host sequence, and save in ./hgDir
+sh nastybugs.sh [List of SRA runs] [Host Genome Directory] [CARD Gene Database Directory] [CARD Variant Database Directory] [Cores] [Output Directory]
+
+```{sh}
+mkdir hgDir cardgene cardsnp outDir  #create directories or use existing directories
+cp ucsc.hg19.fasta ./hgDir/.
+makeblastdb -in ucsc.hg19.fasta -dbtype nucl -out hg19 #Create BLAST databases for host removal
+cd ..
+sh nastybugs.sh id.txt ./hgDir/hg19 ./cardgene ./cardsnp 16 ./outDir
+```
+
+## Input file format
+
+Default - SRA accession numbers (ERR or SRR)
+FASTQ files can be used by modifying magicblast steps.
+
+## Validation
+
+The NastyBugs workflow was validated using the next SRAs: ERR1600439 and ERR1600437
+
+## Planned Features
+1. Code optimization.
+2. Improved more detailed output.
+3. Prediction of novel resistance genes (using HMM).
+
 ## Dependencies:computer:
 
 *Software:*
@@ -35,73 +142,7 @@ This project was part of the [Summer 2017 NCBI Hackathon](https://ncbi-hackathon
 
 [RefSeq Reference Bacterial Genomes](https://www.ncbi.nlm.nih.gov/refseq/)
 
-## NastyBugs Workflow
-
-![My image](https://github.com/NCBI-Hackathons/MetagenomicAntibioticResistance/blob/master/AbxResistanceMetagenomics.png)
-
-## Workflow method
-
-The pipeline use three databases that should be downloaded with the script:
-1.	**GRCh37/hg19 human reference genome database** used for alignment and filtering reads of human origin from metagenomics samples.
-2.	**CARD database** used for search of genomic signatures in the subset of reads unaligned to human genome.
-3.	**RefSeq reference bacterial genomes database** used for search and assigning of 16S RNA taxonomic labels the subset of reads unaligned to human genome.
-
-Step 1.  Mapping sample SRR to human genome using Magic-BLAST:
-```
-magicblast13 -sra SRRXXXXXXX -db ~/references/human -num_threads 12 -score 50 -penalty -3 -out ~/test_run/SRRXXXXXXX_human.sam
-```
-
-Step 2. Filtering reads mapped to human genome using SAMtools (Removal of host (human) genome from metagenomics data):
-```
-samtools fasta -f 4 SRRXXXXXXX_human.sam -1 SRRXXXXXXX_read1.fasta  -2 SRRXXXXXXX_read2.fasta -0 SRRXXXXXXX_read0.fasta
-fastx_clipper [-i INFILE] [-o OUTFILE]
-```
-
-Step 3. Searching 16S RNA taxonomic labels in RefSeq reference bacterial genomes database to identify microbial species presented in metagenome using Magic-BLAST:
-```
-magicblast13 -infmt fasta -query ~/test_run/SRRXXXXXXX_read1.fasta -query_mate ~/test_run/SRRXXXXXXX_read2.fasta -num_threads 12 -score 50 -penalty -3 -out ~/test_run/SRRXXXXXXX_refseq.sam -db ~/references/REFSEQ
-```
-
-Step 4. Searching genes and SNPs from CARD database in metagenome using Magic-BLAST:
-```
-magicblast13 -infmt fasta -query ~/test_run/SRRXXXXXXX_read1.fasta -query_mate ~/test_run/SRRXXXXXXX_read2.fasta -num_threads 12 -score 50 -penalty -3 -out ~/test_run/SRRXXXXXXX_CARD_SNP.sam -db ~/references/CARD_variant
-magicblast13 -infmt fasta -query SRRXXXXXXX_read1.fasta -query_mate SRRXXXXXXX_read2.fasta -num_threads 12 -score 50 -penalty -3 -out SRRXXXXXXX_CARD_gene.sam -db ~/references/CARD_gene
-```
-
-Step 5. Converting SAM to BAM format and sorting using SAMtools:
-```
-samtools view -bS SRRXXXXXXX_SNP.sam | samtools sort - -o SRRXXXXXXX_SNP.bam
-samtools view -bS SRRXXXXXXX_CARD_gene.sam | samtools sort - -o SRRXXXXXXX_CARD_gene.bam
-```
-
-Step 6. Producing detailed output file(s) including names of detected bacterial species and resistance genes with statistical metrics in text and graphical formats.
-
-## Deliverables
-
-Documented workflow with containerized tools in Docker.
-
-[How to use/run a Docker image](https://github.com/NCBI-Hackathons/Cancer_Epitopes_CSHL/blob/master/doc/Docker.md)
-
-## Installation
-```
-sudo docker images
-sudo docker pull stevetsa/docker-magicblast
-sudo docker run -it stevetsa/docker-magicblast
-sudo docker ps -a 
-```
-
-## Usage
-```
-main.sh <options> -S SRA -o output_directory
-```
-
-## Input file format
-
-SRA accession numbers (ERR or SRR)
-or
-FASTQ files
-
-## Output
+## Optional - Output
 
 1. Table (in CSV or TAB-delimited format) with the next columns:
 * RefSeq accession number (Nucleotide)
@@ -112,18 +153,9 @@ FASTQ files
 
 2. Dot plot showing relative abundance of antimicrobial resistance/bacterial species in metagenomic sample.
 
-3. Pie chart vizualization of bacterial abundance in the given dataset using Krona ([Ondov BD, Bergman NH, and Phillippy AM. Interactive metagenomic visualization in a Web browser. BMC Bioinformatics. 2011 Sep 30; 12(1):385](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-12-385)).
+3. Pie chart vizualization of bacterial abundance in the given dataset using Krona ([Ondov BD, Bergman NH, and Phillippy AM. Interactive metagenomic visualization in a Web browser. BMC Bioinformatics. $
 
 ![My image](https://github.com/NCBI-Hackathons/MetagenomicAntibioticResistance/blob/master/MetagenomeVisualization.png)
-
-## Validation
-
-The NastyBugs workflow was validated using the next SRAs: ERR1600439 and SRR5239736.
-
-## Planned Features
-1. Code optimization.
-2. Improved more detailed output.
-3. Prediction of novel resistance genes (using HMM).
 
 ## F.A.Q.
 1. How to cite?
