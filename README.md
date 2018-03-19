@@ -23,21 +23,13 @@ A Docker image complete with all tools and dependencies in project is available.
 
 ## Pull and Run Docker Image
 From Working Directory - 
-Setting environment
-```{sh}
-touch id.txt #Add SRA Accession - one per line 
-mkdir hgDir cardgene cardsnp outDir  #create directories or use existing directories
-cp ucsc.hg19.fasta ./hgDir/.         #download host genome sequence and copy to the hgDir directory
-cd hgDir
-makeblastdb -in ucsc.hg19.fasta -dbtype nucl -out hg19 #Create BLAST databases for host removal
-cd ..
-```
-Run nastybugs 
+Run nastybugs.sh 
 ```{sh}
 # docker pull stevetsa/metagenomicantibioticresistance:latest  #update Docker image
 docker run -v `pwd`:`pwd` -w `pwd` -i -t stevetsa/metagenomicantibioticresistance:latest
-sh /MetagenomicAntibioticResistance/nastybugs.sh id.txt ./hgDir/hg19 ./cardgene ./cardsnp 16 ./outDir
+sh /MetagenomicAntibioticResistance/nastybugs.sh id.txt ./hgDir ./cardgene ./cardsnp 16 ./outDir
 ```
+sh nastybugs.sh [List of SRA runs] [Host Genome Directory] [CARD Gene Database Directory] [CARD Variant Database Directory] [Cores] [Output Directory]
 
 ## NastyBugs Workflow
 
@@ -51,9 +43,14 @@ The pipeline use three databases that should be downloaded with the script:
 3.	**RefSeq reference bacterial genomes database** used for search and assigning of 16S RNA taxonomic labels the subset of reads unaligned to human genome.
 
 Step 1. 
+Getting host genome and create BLAST db
 Getting CARD Gene and SNP databases and create BLAST db - https://card.mcmaster.ca/download
 
 ```{sh}
+wget -P $hostGen ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/annotation/GRCh37_latest/refseq_identifiers/GRCh37_latest_genomic.fna.gz
+gunzip $hostGen/GRCh37_latest_genomic.fna.gz
+makeblastdb -in $hostGen/GRCh37_latest_genomic.fna -dbtype nucl -out $hostGen/hg19
+
 wget https://card.mcmaster.ca/download/0/broadstreet-v2.0.0.tar.gz
 tar xvf broadstreet-v2.0.0.tar.gz
 makeblastdb -in nucleotide_fasta_protein_homolog_model.fasta -dbtype nucl -out cardgenedb
@@ -129,11 +126,13 @@ The NastyBugs workflow was validated using the next SRAs: ERR1600439 and ERR1600
 
 *Software:*
 
-[Magic-BLAST 1.3](https://ncbi.github.io/magicblast/) is a tool for mapping large next-generation RNA or DNA sequencing runs against a whole genome or transcriptome.
+[Magic-BLAST 1.3.0](https://ncbi.github.io/magicblast/) is a tool for mapping large next-generation RNA or DNA sequencing runs against a whole genome or transcriptome.
 
-[SAMtools 1.3.1](http://www.htslib.org/) is a suite of programs for interacting with high-throughput sequencing data.
+[SAMtools 1.7.9](http://www.htslib.org/) is a suite of programs for interacting with high-throughput sequencing data.
 
 [FASTX-Toolkit](http://hannonlab.cshl.edu/fastx_toolkit/) is a collection of command line tools for Short-Reads FASTA/FASTQ files preprocessing.
+ 
+[sratoolkit.2.9.0](http://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/2.9.0/) a collection of tools and libraries for using data in the INSDC Sequence Read Archives.
 
 [Docker](https://www.docker.com/) is the leading software container platform.
 
@@ -142,8 +141,6 @@ The NastyBugs workflow was validated using the next SRAs: ERR1600439 and ERR1600
 [NCBI GRCh37/UCSC hg19 human reference genome](https://www.ncbi.nlm.nih.gov/projects/genome/guide/human/index.shtml)
 
 [CARD (Comprehensive Antibiotic Resistance Database)](https://card.mcmaster.ca/)
-
-[RefSeq Reference Bacterial Genomes](https://www.ncbi.nlm.nih.gov/refseq/)
 
 ## Optional - Output
 

@@ -1,9 +1,6 @@
 #!/bin/bash
-# Usage: sh nastybugs.sh sraDir ./hgDir/hg19 ./cardgene ./cardsnp 16 ./outDir 
+# Usage: sh nastybugs.sh id.txt ./hgDir ./cardgene ./cardsnp 16 ./outDir 
 # Required: id.txt ( List of SRA Accession Numbers - One Acession number per line)
-# Required: Download Human Genome Sequence, e.g. ucsc.hg19.fasta, or other host sequence, and save in hgDir 
-# cd hgDir
-# makeblastdb -in ucsc.hg19.fasta -dbtype nucl -out hg19 #Create BLAST databases for host removal 
 
 if [ "$#" -ne 6 ]; then
 	echo "Not Enough Arguments. Please enter sh nastybugs.sh [List of SRA runs] [Host Genome Directory] [CARD Gene Database Directory] [CARD Variant Database Directory] [Cores] [Output Directory]"
@@ -17,27 +14,34 @@ cardsnp=$(readlink -f "$4")
 cores="$5"
 outdir=$(readlink -f "$6")
 
+## Getting host genome from NCBI and create BLAST db 
+
+printf "Getting host genome and create BLAST databases\n"
+date
+mkdir $hostGen
+wget -P $hostGen ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/annotation/GRCh37_latest/refseq_identifiers/GRCh37_latest_genomic.fna.gz
+gunzip $hostGen/GRCh37_latest_genomic.fna.gz
+makeblastdb -in $hostGen/GRCh37_latest_genomic.fna -dbtype nucl -out $hostGen/hg19
+
 ## Getting CARD Gene and SNP databases and create BLAST db
 ## https://card.mcmaster.ca/download
-printf "%s Getting CARD databases\n"
+printf "Getting CARD databases\n"
 date
-df
-cd "$3"
-echo $PWD
-wget https://card.mcmaster.ca/download/0/broadstreet-v2.0.0.tar.gz
-tar xvf broadstreet-v2.0.0.tar.gz
-makeblastdb -in nucleotide_fasta_protein_homolog_model.fasta -dbtype nucl -out cardgenedb
-cp nucleotide_fasta_protein_variant_model.fasta $cardsnp/.
-cd $cardsnp
-makeblastdb -in nucleotide_fasta_protein_variant_model.fasta -dbtype nucl -out cardsnpdb
-cd ..
+mkdir $cardgene $cardsnp
+wget -P $cardgene https://card.mcmaster.ca/download/0/broadstreet-v2.0.0.tar.gz
+tar xvf $cardgene/broadstreet-v2.0.0.tar.gz -C $cardgene/
+makeblastdb -in $cardgene/nucleotide_fasta_protein_homolog_model.fasta -dbtype nucl -out $cardgene/cardgenedb
+cp $cardgene/nucleotide_fasta_protein_variant_model.fasta $cardsnp/.
+makeblastdb -in $cardsnp/nucleotide_fasta_protein_variant_model.fasta -dbtype nucl -out $cardsnp/cardsnpdb
+
+mkdir $outdir
 
 for sra in $(cat "$1"); do
 
   printf "processing %s\n" "$sra"
   date
   # First we align to a host so we can subtract host reads 
-  magicblast -sra $sra -db $hostGen -num_threads $cores -score 50 -penalty -3 -out $outdir/$sra.human.sam
+  magicblast -sra $sra -db $hostGen/hg19 -num_threads $cores -score 50 -penalty -3 -out $outdir/$sra.human.sam
 
   # Convert magicblast output sam file to FASTA
   # Getting unmapped reads (-f 4).  For mapped reads, use flag (-F 4)
