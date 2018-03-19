@@ -18,12 +18,12 @@ This project was part of the [Summer 2017 NCBI Hackathon](https://ncbi-hackathon
 ## Docker Image
 
 A Docker image complete with all tools and dependencies in project is available.  
-[Install Docker](https://docs.docker.com/install/#desktop) 
-[How to use/run a Docker image from a previous hackathon](https://github.com/NCBI-Hackathons/Cancer_Epitopes_CSHL/blob/master/doc/Docker.md)
+[Install Docker](https://docs.docker.com/install/#desktop)  
+[How to use/run a Docker image from a previous hackathon](https://github.com/NCBI-Hackathons/Cancer_Epitopes_CSHL/blob/master/doc/Docker.md)  
 
 ## Pull and Run Docker Image
 From Working Directory - 
-
+Setting environment
 ```{sh}
 touch id.txt #Add SRA Accession - one per line 
 mkdir hgDir cardgene cardsnp outDir  #create directories or use existing directories
@@ -31,6 +31,9 @@ cp ucsc.hg19.fasta ./hgDir/.         #download host genome sequence and copy to 
 cd hgDir
 makeblastdb -in ucsc.hg19.fasta -dbtype nucl -out hg19 #Create BLAST databases for host removal
 cd ..
+```
+Run nastybugs 
+```{sh}
 sh nastybugs.sh id.txt ./hgDir/hg19 ./cardgene ./cardsnp 16 ./outDir
 docker run -v `pwd`:`pwd` -w `pwd` -i -t stevetsa/metagenomicantibioticresistance:latest
 sh /MetagenomicAntibioticResistance/nastybugs.sh id.txt ./hgDir/hg19 ./cardgene ./cardsnp 16 ./outDir
