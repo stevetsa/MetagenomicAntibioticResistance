@@ -46,7 +46,7 @@ fi
 mkdir $outdir
 
 ###JD:added prompt notification for user peace of mind
-printf "\n\nprocessing reads..."
+printf "\nprocessing reads...\n"
 
 for sra in $(cat "$1"); do
 
@@ -81,7 +81,7 @@ for sra in $(cat "$1"); do
     magicblast -num_threads $cores  -infmt fasta -query $outdir/${sra}_unmapped_read_one_trimmed -query_mate $outdir/${sra}_unmapped_read_two_trimmed -score 50 -penalty -3 -out $outdir/$sra.CARD_snp.sam -db $cardsnp/cardsnpdb
 
   ###JD:in my unpaired run, reads were coming out in read_zero, changed if statement to check in this file rather than read_one, and also clipper and magicblast to read the _zero file
-  elif [[ (-s $read0_count) ]]; then
+  elif [[ ( $read0_count > 0 ) ]]; then
     printf "Single End - %d %d %d\n" "$read1_count" "$read2_count" "$read0_count"
     date
     fastx_clipper -i $outdir/${sra}_unmapped_read_zero -o $outdir/${sra}_unmapped_read_zero_trimmed
@@ -105,4 +105,3 @@ for sra in $(cat "$1"); do
   date
   printf "\n"
 done > log
-
