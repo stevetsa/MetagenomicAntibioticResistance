@@ -38,9 +38,9 @@ if [ ! -e "$cardgene/cardgenedb.nhr" ]; then
   wget --no-check-certificate -O $cardgene/broadstreet.tar.gz https://card.mcmaster.ca/latest/data
   ###JD:changed download location to latest rather than specific version
   tar xvf $cardgene/broadstreet.tar.gz -C $cardgene/
-  makeblastdb -in $cardgene/nucleotide_fasta_protein_homolog_model.fasta -dbtype nucl -out $cardgene/cardgenedb
+  makeblastdb -in $cardgene/nucleotide_fasta_protein_homolog_model.fasta -parse_seqids -dbtype nucl -out $cardgene/cardgenedb
   cp $cardgene/nucleotide_fasta_protein_variant_model.fasta $cardsnp/.
-  makeblastdb -in $cardsnp/nucleotide_fasta_protein_variant_model.fasta -dbtype nucl -out $cardsnp/cardsnpdb
+  makeblastdb -in $cardsnp/nucleotide_fasta_protein_variant_model.fasta -parse_seqids -dbtype nucl -out $cardsnp/cardsnpdb
 fi
 
 mkdir $outdir
