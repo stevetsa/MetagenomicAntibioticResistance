@@ -1,6 +1,6 @@
 ### forked from NCBI-Hackathons/MetagenomicAntibioticResistance
 
-FROM ubuntu:latest
+FROM ubuntu:16.04
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 MAINTAINER Steve Tsang <mylagimail2004@yahoo.com>
 
@@ -87,6 +87,22 @@ RUN make
 RUN make install
 RUN cpan 'PerlIO::gzip'
 RUN cpan 'GD::Graph::bars'
+
+## CARD RGL tool
+RUN apt-get install -y git python3 python3-dev python3-pip ncbi-blast+ prodigal wget && \
+    wget http://github.com/bbuchfink/diamond/releases/download/v0.8.36/diamond-linux64.tar.gz && \
+    tar xvf diamond-linux64.tar.gz && \
+    mv diamond /usr/bin
+
+
+WORKDIR /opt
+RUN wget https://card.mcmaster.ca/download/1/software-v4.1.0.tar.gz
+RUN tar xvf software-v4.1.0.tar.gz
+RUN tar xvzf 4.1.0.tar.gz
+WORKDIR /opt/rgi-4.1.0
+RUN pip3 install -r requirements.txt && \
+    pip3 install . && \
+    bash test.sh 
 
 WORKDIR /
 RUN git clone https://github.com/stevetsa/MetagenomicAntibioticResistance.git
